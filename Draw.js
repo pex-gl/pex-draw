@@ -531,13 +531,11 @@ Draw.prototype._updateProgramProperties = function(){
     if(program == this._programPrev){
         return;
     }
-    //TODO: This needs to be moved to program
-    var attributes = program._attributes;
 
-    this._programHasAttribPosition = attributes['aPosition'] !== undefined;
-    this._programHasAttribNormal   = attributes['aNormal'] !== undefined;
-    this._programHasAttribColor    = attributes['aColor'] !== undefined;
-    this._programHasAttribTexcoord = attributes['aTexCoord0'] !== undefined;
+    this._programHasAttribPosition = program.hasAttributeAtLocation(ctx.ATTRIB_POSITION);
+    this._programHasAttribNormal   = program.hasAttributeAtLocation(ctx.ATTRIB_NORMAL);
+    this._programHasAttribColor    = program.hasAttributeAtLocation(ctx.ATTRIB_COLOR);
+    this._porgramHasAttribTexcoord = program.hasAttributeAtLocation(ctx.ATTRIB_TEX_COORD_0);
 
     this._programHasUniformPointSize = program.hasUniform('uPointSize');
 
