@@ -517,9 +517,41 @@ function Draw(ctx){
         this._bufferPivotIndices
     );
 
+    // VECTOR
+
+    this._vectorAxisLength    = null;
+    this._vectorHeadLength    = null;
+    this._vectorHeadRadius    = null;
+    this._vectorHeadPositions = new Float32Array(numHeadPositions * 3);
+
+    this._bufferVectorPosition = ctx.createBuffer(ctx.ARRAY_BUFFER,
+        new Float32Array(6 + numHeadPositions * 3),
+        ctx.DYNAMIC_DRAW, true
+    );
+
+    this._bufferVectorColor = ctx.createBuffer(ctx.ARRAY_BUFFER,
+        new Float32Array(createArrWithValuesArgs(2 + numHeadPositions,1,1,1,1)),
+        ctx.DYNAMIC_DRAW, true
+    );
+
+    this._bufferVectorIndex = ctx.createBuffer(ctx.ELEMENT_ARRAY_BUFFER,
+        new Uint16Array(genTriangleFan(2, 2 + 16)),
+        ctx.STATIC_DRAW
+    );
+
+    this._vaoVector = ctx.createVertexArray([
+        { buffer : this._bufferVectorPosition, location : ctx.ATTRIB_POSITION, size : 3 },
+        { buffer : this._bufferVectorColor,    location : ctx.ATTRIB_COLOR,    size : 4 }
+    ], this._bufferVectorIndex);
+
     // TEMP
 
-    this._tempVec3  = Vec3.create();
+    this._tempVec30 = Vec3.create();
+    this._tempVec31 = Vec3.create();
+    this._tempVec32 = Vec3.create();
+    this._tempVec33 = Vec3.create();
+    this._tempVec34 = Vec3.create();
+    this._tempVec35 = Vec3.create();
     this._tempMat40 = Mat4.create();
     this._tempMat41 = Mat4.create();
     this._tempMat42 = Mat4.create();
@@ -703,12 +735,124 @@ Draw.prototype.drawQuat = function(){
 
 };
 
-Draw.prototype.drawVector = function(){
-
+Draw.prototype.drawVector = function(from,to){
+    if(to === undefined){
+        this.drawVector6(0,0,0,from[0],from[1],from[2]);
+        return;
+    }
+    this.drawVector6(from[0],from[1],from[2],to[0],to[1],to[2]);
 };
 
-Draw.prototype.drawVector6 = function(){
+Draw.prototype.drawVector6 = function(x0,y0,z0,x1,y1,z1,headLength,headRadius){
+    if(x0 == x1 && y0 == y1 && z0 == z1){
+        return;
+    }
 
+    this._updateProgramProperties();
+
+    if(!this._programHasAttribPosition){
+        return;
+    }
+
+    if(x1 === undefined){
+        x1 = x0;
+        y1 = y0;
+        z1 = z0;
+        x0 = y0 = z0 = 0;
+    }
+
+    headLength = headLength === undefined ? 0.125 : headLength;
+    headRadius = headRadius === undefined ? 0.075 : headRadius;
+
+    var start = Vec3.set3(this._tempVec30,x0,y0,z0);
+    var end   = Vec3.set3(this._tempVec31,x1,y1,z1);
+
+    var axis       = Vec3.sub(Vec3.set(this._tempVec32,end),start);
+    var axisLength = Vec3.length(axis);
+
+    var positions = this._bufferVectorPosition.getData();
+
+    if(this._vectorAxisLength != axisLength ||
+       this._vectorHeadLength != headLength ||
+       this._vectorHeadRadius != headRadius ||
+       positions[0] != x0 ||
+       positions[1] != y0 ||
+       positions[2] != z0 ||
+       positions[3] != x1 ||
+       positions[4] != y1 ||
+       positions[5] != z1){
+
+        positions[0] = x0;
+        positions[1] = y0;
+        positions[2] = z0;
+        positions[3] = x1;
+        positions[4] = y1;
+        positions[5] = z1;
+
+        if(this._vectorHeadLength != headLength ||
+           this._vectorHeadRadius != headRadius){
+            this._genHead(headLength,headRadius,this._vectorHeadPositions,0);
+            this._vectorHeadLength = headLength;
+            this._vectorHeadRadius = headRadius;
+        }
+
+        positions.set(this._vectorHeadPositions,6);
+
+        Vec3.normalize(axis);
+
+        var left = Vec3.normalize(Vec3.cross(Vec3.set3(this._tempVec33,0,1,0),axis));
+        var up   = Vec3.normalize(Vec3.cross(Vec3.set(this._tempVec34,axis),left));
+
+        if(start[0] == end[0] && start[2] == end[2]){
+            if(start[1] > end[1]){
+                Vec3.set3(left,0,0,1);
+                Vec3.set3(up,1,0,0);
+                Vec3.set3(axis,0,-1,0);
+            }
+            else {
+                Vec3.set3(left,1,0,0);
+                Vec3.set3(up,0,0,1);
+                Vec3.set3(axis,0,1,0);
+            }
+        }
+
+
+        var axisScaled = Vec3.scale(Vec3.set(this._tempVec35,axis),axisLength - headLength);
+        Vec3.add(Vec3.set(end,start),axisScaled);
+
+        var matrix = Mat4.identity(this._tempMat40);
+        Mat4.setTranslation3(matrix,end[0],end[1],end[2]);
+
+        Mat4.setRotationFromOnB(matrix,left,up,axis);
+
+        var x, y, z;
+
+        for(var i = 6, l = positions.length; i < l; i+=3){
+            x = positions[i  ];
+            y = positions[i+1];
+            z = positions[i+2];
+
+            positions[i  ] = matrix[ 0] * x + matrix[ 4] * y + matrix[ 8] * z + matrix[12];
+            positions[i+1] = matrix[ 1] * x + matrix[ 5] * y + matrix[ 9] * z + matrix[13];
+            positions[i+2] = matrix[ 2] * x + matrix[ 6] * y + matrix[10] * z + matrix[14];
+        }
+
+        this._bufferVectorPosition.bufferData();
+
+        this._vectorAxisLength = axisLength;
+    }
+
+    if(this._programHasAttribColor){
+        var colors = this._bufferVectorColor.getData();
+        if(!Vec4.equals(colors,this._color)){
+            arrFillVec4(colors,this._color);
+            this._bufferVectorColor.bufferData();
+        }
+    }
+
+    this._ctx.bindVertexArray(this._vaoVector);
+    this._ctx.drawArrays(this._ctx.LINES,0,2);
+    this._ctx.drawElements(this._ctx.TRIANGLES,42);
 };
 
 Draw.prototype._updateGrid = function(subdivs){
@@ -780,8 +924,8 @@ Draw.prototype._drawGridInternal = function(size, subdivs, mode){
 
     this._ctx.bindVertexArray(this._vaoGrid);
     this._ctx.pushModelMatrix();
-        Vec3.set3(this._tempVec3,size[0],1.0,size[1]);
-        this._ctx.scale(this._tempVec3);
+        Vec3.set3(this._tempVec30,size[0],1.0,size[1]);
+        this._ctx.scale(this._tempVec30);
         if(mode == this._ctx.LINES){
             this._ctx.drawElements(this._ctx.LINES, this._gridNumIndices);
         }
@@ -1030,9 +1174,9 @@ Draw.prototype.drawRect = function(width,height){
 
     this._ctx.bindVertexArray(this._vaoRect);
     if(width != 1 || height != 1){
-        Vec3.set3(this._tempVec3,width,height,0);
+        Vec3.set3(this._tempVec30,width,height,0);
         this._ctx.pushModelMatrix();
-            this._ctx.scale(this._tempVec3);
+            this._ctx.scale(this._tempVec30);
             this._ctx.drawElements(this._ctx.TRIANGLES,6);
         this._ctx.popModelMatrix();
     } else {
@@ -1060,9 +1204,9 @@ Draw.prototype.drawRectPoints = function(width, height){
 
     this._ctx.bindVertexArray(this._vaoRectPoints);
     if(width != 1 || height != 1){
-        Vec3.set3(this._tempVec3,width,height,0);
+        Vec3.set3(this._tempVec30,width,height,0);
         this._ctx.pushModelMatrix();
-            this._ctx.scale(this._tempVec3);
+            this._ctx.scale(this._tempVec30);
             this._ctx.drawArrays(this._ctx.POINTS,0,4);
         this._ctx.popModelMatrix();
     } else {
@@ -1090,9 +1234,9 @@ Draw.prototype.drawRectStroked = function(width, height){
 
     this._ctx.bindVertexArray(this._vaoRectStroked);
     if(width != 1 || height != 1){
-        Vec3.set3(this._tempVec3,width,height,0);
+        Vec3.set3(this._tempVec30,width,height,0);
         this._ctx.pushModelMatrix();
-            this._ctx.scale(this._tempVec3);
+            this._ctx.scale(this._tempVec30);
             this._ctx.drawArrays(this._ctx.LINE_LOOP,0,4);
         this._ctx.popModelMatrix();
     } else {
@@ -1251,9 +1395,9 @@ Draw.prototype.drawCube = function(scale){
 
     this._ctx.bindVertexArray(this._vaoCube);
     if(scale !== undefined){
-        Vec3.set3(this._tempVec3, scale, scale, scale);
+        Vec3.set3(this._tempVec30, scale, scale, scale);
         this._ctx.pushModelMatrix();
-            this._ctx.scale(this._tempVec3);
+            this._ctx.scale(this._tempVec30);
             this._ctx.drawElements(this._ctx.TRIANGLES, 36);
         this._ctx.popModelMatrix();
     }
@@ -1272,9 +1416,9 @@ Draw.prototype.drawCubeColored = function(scale){
     this._ctx.bindVertexArray(this._vaoCubeColored);
 
     if(scale !== undefined){
-        Vec3.set3(this._tempVec3, scale, scale, scale);
+        Vec3.set3(this._tempVec30, scale, scale, scale);
         this._ctx.pushModelMatrix();
-            this._ctx.scale(this._tempVec3);
+            this._ctx.scale(this._tempVec30);
             this._ctx.drawElements(this._ctx.TRIANGLES, 36);
         this._ctx.popModelMatrix();
     }
@@ -1300,9 +1444,9 @@ Draw.prototype.drawCubePoints = function(scale){
 
     this._ctx.bindVertexArray(this._vaoCubePoints);
     if(scale !== undefined){
-        Vec3.set3(this._tempVec3, scale, scale, scale);
+        Vec3.set3(this._tempVec30, scale, scale, scale);
         this._ctx.pushModelMatrix();
-            this._ctx.scale(this._tempVec3);
+            this._ctx.scale(this._tempVec30);
             this._ctx.drawArrays(this._ctx.POINTS, 0, 8);
         this._ctx.popModelMatrix();
     }
@@ -1328,9 +1472,9 @@ Draw.prototype.drawCubeStroked = function(scale){
 
     this._ctx.bindVertexArray(this._vaoCubeStroked);
     if(scale !== undefined){
-        Vec3.set3(this._tempVec3, scale, scale, scale);
+        Vec3.set3(this._tempVec30, scale, scale, scale);
         this._ctx.pushModelMatrix();
-            this._ctx.scale(this._tempVec3);
+            this._ctx.scale(this._tempVec30);
             this._ctx.drawElements(this._ctx.LINES, 24);
         this._ctx.popModelMatrix();
     }
@@ -1382,7 +1526,7 @@ Draw.prototype.drawScreenAlignedRect = function(x,y,width,height,windowWidth,win
         //NOTE : this is cumbersome,
         this._ctx.setViewMatrix(MAT4_IDENTITY);
         this._ctx.setModelMatrix(MAT4_IDENTITY);
-        this._ctx.translate(Vec3.set3(this._tempVec3,x,y,0));
+        this._ctx.translate(Vec3.set3(this._tempVec30,x,y,0));
         if(topleft){
             this._ctx.setProjectionMatrix(Mat4.ortho(this._tempMat40,0,windowWidth,windowHeight,0,-1,1));
         } else {
