@@ -641,8 +641,8 @@ Draw.prototype._updatePivotGeom = function(axisLength, headLength, headRadius){
     var matrix1 = Mat4.identity(this._tempMat41);
     var matrix2 = Mat4.identity(this._tempMat42);
 
-    Mat4.setRotationXYZ3(matrix0,0,-pi_2,0);
-    Mat4.setTranslation3(matrix1,0,0,axisHeadLength);
+    Mat4.setTranslation3(matrix0,axisHeadLength,0,0);
+    Mat4.setRotationXYZ3(matrix1,0,pi_2,0);
     Mat4.mult(matrix0,matrix1);
 
     for(var i = offsetHeadX, l = offsetHeadX + numPositions; i < l; i+=3){
@@ -653,8 +653,8 @@ Draw.prototype._updatePivotGeom = function(axisLength, headLength, headRadius){
     Mat4.identity(matrix1);
     Mat4.identity(matrix2);
 
-    Mat4.setRotationXYZ3(matrix0,pi_2,0,0);
-    Mat4.setTranslation3(matrix1,0,0,axisHeadLength);
+    Mat4.setTranslation3(matrix0,0,axisHeadLength,0);
+    Mat4.setRotationXYZ3(matrix1,-pi_2,0,0);
     Mat4.mult(matrix0,matrix1);
 
     for(var i = offsetHeadY, l = offsetHeadY + numPositions; i < l; i+=3){
