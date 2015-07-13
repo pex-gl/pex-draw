@@ -543,7 +543,7 @@ function Draw(ctx){
     ], this._bufferVectorIndex);
 
     // TEMP
-
+    this._tempVec20 = Vec2.create();
     this._tempVec30 = Vec3.create();
     this._tempVec31 = Vec3.create();
     this._tempVec32 = Vec3.create();
@@ -1561,6 +1561,43 @@ Draw.prototype.drawScreenAlignedRect = function(x,y,width,height,windowWidth,win
     this._ctx.popModelMatrix();
     this._ctx.popViewMatrix();
     this._ctx.popProjectionMatrix();
+};
+
+// DEBUG
+
+Draw.prototype.drawArcball = function(arcball,showAxesDragArea){
+    showAxesDragArea = showAxesDragArea === undefined ? false : showAxesDragArea;
+
+    this.drawPivotRotation();
+
+    if(showAxesDragArea){
+        this._ctx.pushProjectionMatrix();
+        this._ctx.pushViewMatrix();
+        this._ctx.pushModelMatrix();
+            var bounds      = arcball.getBoundsSize(this._tempVec20);
+            var radiusScale = arcball.getRadiusScale();
+            var radius      = Math.min(bounds[0],bounds[1]) * radiusScale * 0.5;
+
+            //NOTE : this is cumbersome,
+            this._ctx.setProjectionMatrix(Mat4.ortho(this._tempMat40,0,bounds[0],bounds[1],0,-1,1));
+            this._ctx.setViewMatrix(MAT4_IDENTITY);
+            this._ctx.setModelMatrix(MAT4_IDENTITY);
+
+            var color = Vec4.set(this._tempVec40,this._color);
+            var numSegmentsCircle = this._numSegmentsCircle;
+
+            this._ctx.translate(Vec3.set3(this._tempVec30,bounds[0] * 0.5, bounds[1] * 0.5, 0));
+
+            this.setColor4(0.25,0.25,0.25,1);
+            this.setCircleNumSegments(64);
+            this.drawCircleStroked(radius);
+
+            this.setColor(color);
+            this.setCircleNumSegments(numSegmentsCircle);
+        this._ctx.popModelMatrix();
+        this._ctx.popViewMatrix();
+        this._ctx.popProjectionMatrix();
+    }
 };
 
 Draw.prototype.drawCamera = function(){
