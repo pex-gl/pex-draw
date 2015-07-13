@@ -271,7 +271,7 @@ function Draw(ctx){
     ], this._bufferRectIndex);
 
     // CIRCLE
-    
+
     this._numSegmentsCircleMin  = 3;
     this._numSegmentsCircleMax  = 128;
     this._numSegmentsCirclePrev = -1;
@@ -550,6 +550,7 @@ function Draw(ctx){
     this._tempVec33 = Vec3.create();
     this._tempVec34 = Vec3.create();
     this._tempVec35 = Vec3.create();
+    this._tempVec40 = Vec4.create();
     this._tempMat40 = Mat4.create();
     this._tempMat41 = Mat4.create();
     this._tempMat42 = Mat4.create();
@@ -725,8 +726,27 @@ Draw.prototype.drawPivotAxes = function(axisLength, headLength, headRadius){
     this._ctx.drawElements(this._ctx.TRIANGLES,126);
 };
 
-Draw.prototype.drawPivotRotation = function(){
+Draw.prototype.drawPivotRotation = function(scale){
+    scale = (scale === undefined ? 1.0 : scale) * 2.0;
 
+    var numSegmentsCircle = this._numSegmentsCircle;
+    var color             = Vec4.set(this._tempVec40,this._color);
+
+    this.setCircleNumSegments(60);
+    this._ctx.pushModelMatrix();
+        this._ctx.scale(Vec3.set3(this._tempVec30,scale,scale,scale));
+        this.setColor4(0,0,1,1);
+        this.drawCircleStroked();
+        this._ctx.rotateXYZ(Vec3.set3(this._tempVec31,Math.PI * 0.5,0,0));
+        this.setColor4(0,1,0,1);
+        this.drawCircleStroked();
+        this._ctx.rotateXYZ(Vec3.set3(this._tempVec32,0,Math.PI * 0.5,0));
+        this.setColor4(1,0,0,1);
+        this.drawCircleStroked();
+    this._ctx.popModelMatrix();
+
+    this.setColor(color);
+    this.setCircleNumSegments(numSegmentsCircle);
 };
 
 Draw.prototype.drawQuat = function(){
