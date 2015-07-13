@@ -1576,7 +1576,7 @@ Draw.prototype.drawArcball = function(arcball,showAxesDragArea){
         this._ctx.pushModelMatrix();
             var bounds      = arcball.getBoundsSize(this._tempVec20);
             var radiusScale = arcball.getRadiusScale();
-            var radius      = Math.min(bounds[0],bounds[1]) * radiusScale * 0.5;
+            var radius      = Math.min(bounds[0],bounds[1]) * radiusScale;
 
             //NOTE : this is cumbersome,
             this._ctx.setProjectionMatrix(Mat4.ortho(this._tempMat40,0,bounds[0],bounds[1],0,-1,1));
