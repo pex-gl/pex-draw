@@ -270,39 +270,37 @@ function Draw(ctx){
         { buffer : this._bufferRectColor,    location : ctx.ATTRIB_COLOR,    size : 4}
     ], this._bufferRectIndex);
 
-    // CIRCLE STROKED
-
+    // CIRCLE
+    
+    this._numSegmentsCircleMin  = 3;
+    this._numSegmentsCircleMax  = 128;
     this._numSegmentsCirclePrev = -1;
 
-    ////NOTE: Dynamic interleaved buffers with varying size dont work with static vao config!
-    //
-    //this._bufferCircle = ctx.createBuffer(ctx.ARRAY_BUFFER,
-    //    new Float32Array(0),ctx.DYNAMIC_DRAW,true
-    //);
-    //
-    //this._vaoCircle = ctx.createVertexArray([
-    //    { buffer : this._bufferCircle, location : ctx.ATTRIB_POSITION    },
-    //    { buffer : this._bufferCircle, location : ctx.ATTRIB_COLOR       },
-    //    { buffer : this._bufferCircle, location : ctx.ATTRIB_NORMAL      },
-    //    { buffer : this._bufferCircle, location : ctx.ATTRIB_TEX_COORD_0 }
-    //]);
-
     this._bufferCirclePosition = ctx.createBuffer(ctx.ARRAY_BUFFER,
-        new Float32Array(0),ctx.DYNAMIC_DRAW,true
+        new Float32Array(this._numSegmentsCircleMax * 3),
+        ctx.DYNAMIC_DRAW,true
     );
 
     this._bufferCircleColor = ctx.createBuffer(ctx.ARRAY_BUFFER,
-        new Float32Array(0),ctx.DYNAMIC_DRAW,true
+        new Float32Array(createArrWithValuesArgs(this._numSegmentsCircleMax,1,1,1,1)),
+        ctx.DYNAMIC_DRAW,true
     );
 
     this._bufferCircleTexcoord = ctx.createBuffer(ctx.ARRAY_BUFFER,
-        new Float32Array(0),ctx.DYNAMIC_DRAW,true
+        new Float32Array(this._numSegmentsCircleMax * 2),
+        ctx.DYNAMIC_DRAW,true
+    );
+
+    this._bufferCircleNormal = ctx.createBuffer(ctx.ARRAY_BUFFER,
+        new Float32Array(createArrWithValuesArgs(this._numSegmentsCircle,1,0,0)),
+        ctx.STATIC_DRAW,true
     );
 
     this._vaoCircle = ctx.createVertexArray([
-        { buffer : this._bufferCirclePosition, location : ctx.ATTRIB_POSITION,    size : 2},
-        { buffer : this._bufferCircleColor,    location : ctx.ATTRIB_COLOR,       size : 4},
-        { buffer : this._bufferCircleTexcoord, location : ctx.ATTRIB_TEX_COORD_0, size : 2}
+        { buffer : this._bufferCirclePosition, location : ctx.ATTRIB_POSITION,    size : 2, offset : 0 },
+        { buffer : this._bufferCircleColor,    location : ctx.ATTRIB_COLOR,       size : 4, offset : 0 },
+        { buffer : this._bufferCircleTexcoord, location : ctx.ATTRIB_TEX_COORD_0, size : 2, offset : 0 },
+        { buffer : this._bufferCircleNormal,   location : ctx.ATTRIB_NORMAL,      size : 3, offset : 0 }
     ]);
 
     // CUBE STROKED / POINTS
@@ -607,7 +605,7 @@ Draw.prototype.getPointSize = function(){
 };
 
 Draw.prototype.setCircleNumSegments = function(numSegments){
-    this._numSegmentsCircle = numSegments;
+    this._numSegmentsCircle = Math.max(this._numSegmentsCircleMin,Math.min(numSegments,this._numSegmentsCircleMax));
 };
 
 Draw.prototype.getCirlceNumSegments = function(){
@@ -1244,38 +1242,43 @@ Draw.prototype.drawRectStroked = function(width, height){
     }
 };
 
-Draw.prototype._updateCircleGeom = function(positions, texCoords, numSegments, offsetPositions, offsetTexcCoords){
-    offsetPositions  = offsetPositions === undefined ? 0 : offsetPositions;
-    offsetTexcCoords = offsetTexcCoords === undefined ? 0 : offsetTexcCoords;
+Draw.prototype._genCircleGeom = function(positions,normals,colors,texcoords,numSegments,color){
     var step = Math.PI * 2 / numSegments;
-    for(var i = 0, j, k; i < numSegments; ++i){
-        j = offsetPositions + i * 3;
+    var r = color[0];
+    var g = color[1];
+    var b = color[2];
+    var a = color[3];
+    for(var i = 0, j = 0; i < numSegments; ++i){
+        j = i * 2;
         positions[j  ] = Math.cos(step * i);
         positions[j+1] = Math.sin(step * i);
-        positions[j+2] = 0;
 
-        k = offsetTexcCoords + i * 2;
+        texcoords[j  ] = 0.5 + positions[j  ];
+        texcoords[j+1] = 0.5 + positions[j+1];
+
+        j = i * 4;
+        colors[j  ] = r;
+        colors[j+1] = g;
+        colors[j+2] = b;
+        colors[j+3] = a;
+    }
+};
+
+Draw.prototype._updateCircleGeom = function(positions, texCoords, numSegments, offsetPositions, offsetTexcoords){
+    offsetPositions = offsetPositions === undefined ? 0 : offsetPositions;
+    offsetTexcoords = offsetTexcoords === undefined ? 0 : offsetTexcoords;
+    var step = Math.PI * 2 / numSegments;
+    for(var i = 0, j, k; i < numSegments; ++i){
+        j = offsetPositions + i * 2;
+        positions[j  ] = Math.cos(step * i);
+        positions[j+1] = Math.sin(step * i);
+
+        k = offsetTexcoords + i * 2;
         texCoords[k  ] = 0.5 + positions[j ];
         texCoords[k+1] = 0.5 + positions[j+1]
     }
 };
 
-Draw.prototype._updateCircleColor = function(colors, numSegments, color){
-    var r = color[0];
-    var g = color[1];
-    var b = color[2];
-    var a = color[3];
-    for(var i = 0, l = numSegments * 4; i < l; i+=4){
-        colors[i  ] = r;
-        colors[i+1] = g;
-        colors[i+2] = b;
-        colors[i+3] = a;
-    }
-};
-
-Draw.prototype._genCircleGeom = function(positions,normals,colors,texcoords,numSegments,color){
-
-};
 
 Draw.prototype._drawCircleInternal = function(radius,drawMode){
     this._updateProgramProperties();
@@ -1284,34 +1287,36 @@ Draw.prototype._drawCircleInternal = function(radius,drawMode){
         return;
     }
 
-    var numSegments = this._numSegmentsCircle;
+    if(this._numSegmentsCircle != this._numSegmentsCirclePrev){
+        var positions = this._bufferCirclePosition.getData();
+        var texcoords = this._bufferCircleTexcoord.getData();
+        this._updateCircleGeom(positions,texcoords,this._numSegmentsCircle);
+        this._bufferCirclePosition.bufferData();
+        this._bufferCircleTexcoord.bufferData();
+        this._numSegmentsCirclePrev = this._numSegmentsCircle;
+    }
 
-    //if(numSegments > this._numSegmentsCirclePrev){
-    //    this._gen
-    //}
-    //else {
-    //    //reassign
-    //    if(numSegments != this._numSegmentsCirclePrev){
-    //
-    //    }
-    //}
+    var colors = this._bufferCircleColor.getData();
+    if(!Vec4.equals(colors,this._color)){
+        arrFillVec4(colors,this._color);
+        this._bufferCircleColor.bufferData();
+    }
 
+    this._ctx.bindVertexArray(this._vaoCircle);
+    this._ctx.pushModelMatrix();
+        this._ctx.scale(Vec3.set3(this._tempVec30,radius,radius,radius));
+        this._ctx.drawArrays(drawMode,0,this._numSegmentsCircle);
+    this._ctx.popModelMatrix();
 };
 
-Draw.prototype.drawCircle = function(){
-
+Draw.prototype.drawCircle = function(radius){
+    radius = radius === undefined ? 0.5 : radius;
+    this._drawCircleInternal(radius, this._ctx.TRIANGLE_FAN);
 };
 
-Draw.prototype.drawCircle3 = function(){
-
-};
-
-Draw.prototype.drawCircleStroked = function(){
-
-};
-
-Draw.prototype.drawCircleStroked3 = function(){
-
+Draw.prototype.drawCircleStroked = function(radius){
+    radius = radius === undefined ? 0.5 : radius;
+    this._drawCircleInternal(radius, this._ctx.LINE_LOOP);
 };
 
 Draw.prototype.drawCircles = function(){
