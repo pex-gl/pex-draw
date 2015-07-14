@@ -1545,22 +1545,16 @@ Draw.prototype.drawScreenAlignedRect = function(x,y,width,height,windowWidth,win
 
     topleft = topleft === undefined ? false : topleft;
 
-    this._ctx.pushProjectionMatrix();
-    this._ctx.pushViewMatrix();
-    this._ctx.pushModelMatrix();
-        //NOTE : this is cumbersome,
-        this._ctx.setViewMatrix(MAT4_IDENTITY);
-        this._ctx.setModelMatrix(MAT4_IDENTITY);
-        this._ctx.translate(Vec3.set3(this._tempVec30,x,y,0));
+    this._ctx.pushMatrices();
+        this._ctx.loadIdentities();
         if(topleft){
             this._ctx.setProjectionMatrix(Mat4.ortho(this._tempMat40,0,windowWidth,windowHeight,0,-1,1));
         } else {
             this._ctx.setProjectionMatrix(Mat4.ortho(this._tempMat40,0,windowWidth,0,windowHeight,-1,1));
         }
+        this._ctx.translate(Vec3.set3(this._tempVec30,x,y,0));
         this.drawRect(width,height);
-    this._ctx.popModelMatrix();
-    this._ctx.popViewMatrix();
-    this._ctx.popProjectionMatrix();
+    this._ctx.popMatrices();
 };
 
 // DEBUG
@@ -1571,17 +1565,13 @@ Draw.prototype.drawArcball = function(arcball,showAxesDragArea){
     this.drawPivotRotation();
 
     if(showAxesDragArea){
-        this._ctx.pushProjectionMatrix();
-        this._ctx.pushViewMatrix();
-        this._ctx.pushModelMatrix();
+        this._ctx.pushMatrices();
             var bounds      = arcball.getBoundsSize(this._tempVec20);
             var radiusScale = arcball.getRadiusScale();
             var radius      = Math.min(bounds[0],bounds[1]) * radiusScale;
 
-            //NOTE : this is cumbersome,
+            this._ctx.loadIdentities();
             this._ctx.setProjectionMatrix(Mat4.ortho(this._tempMat40,0,bounds[0],bounds[1],0,-1,1));
-            this._ctx.setViewMatrix(MAT4_IDENTITY);
-            this._ctx.setModelMatrix(MAT4_IDENTITY);
 
             var color = Vec4.set(this._tempVec40,this._color);
             var numSegmentsCircle = this._numSegmentsCircle;
@@ -1594,9 +1584,7 @@ Draw.prototype.drawArcball = function(arcball,showAxesDragArea){
 
             this.setColor(color);
             this.setCircleNumSegments(numSegmentsCircle);
-        this._ctx.popModelMatrix();
-        this._ctx.popViewMatrix();
-        this._ctx.popProjectionMatrix();
+        this._ctx.popMatrices();
     }
 };
 
