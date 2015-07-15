@@ -1,10 +1,13 @@
 var Vec2 = require('pex-math/Vec2');
 var Vec3 = require('pex-math/Vec3');
+var Quat = require('pex-math/Quat');
 var Vec4 = require('pex-math/Vec4');
 var Mat4 = require('pex-math/Mat4');
 
 var MAT4_IDENTITY = Mat4.create();
 var VEC2_ONE      = [1,1];
+var VEC3_ZERO     = [0,0,0];
+var AXIS_Y        = [0,1,0];
 
 function createArrWithValuesArgs(numElements,args){
     var elementSize = arguments.length - 1;
@@ -136,6 +139,7 @@ function Draw(ctx){
     this._pointSize = 1;
     this._numSegmentsCircle = 16;
     this._numSegmentsEllipse = 16;
+
 
     // POINT
 
@@ -551,6 +555,7 @@ function Draw(ctx){
     this._tempVec34 = Vec3.create();
     this._tempVec35 = Vec3.create();
     this._tempVec40 = Vec4.create();
+    this._tempQuat0 = Quat.create();
     this._tempMat40 = Mat4.create();
     this._tempMat41 = Mat4.create();
     this._tempMat42 = Mat4.create();
@@ -753,12 +758,12 @@ Draw.prototype.drawQuat = function(){
 
 };
 
-Draw.prototype.drawVector = function(from,to){
+Draw.prototype.drawVector = function(from,to,headLength,headRadius){
     if(to === undefined){
         this.drawVector6(0,0,0,from[0],from[1],from[2]);
         return;
     }
-    this.drawVector6(from[0],from[1],from[2],to[0],to[1],to[2]);
+    this.drawVector6(from[0],from[1],from[2],to[0],to[1],to[2],headLength,headRadius);
 };
 
 Draw.prototype.drawVector6 = function(x0,y0,z0,x1,y1,z1,headLength,headRadius){
@@ -872,6 +877,7 @@ Draw.prototype.drawVector6 = function(x0,y0,z0,x1,y1,z1,headLength,headRadius){
     this._ctx.drawArrays(this._ctx.LINES,0,2);
     this._ctx.drawElements(this._ctx.TRIANGLES,42);
 };
+
 
 Draw.prototype._updateGrid = function(subdivs){
     var colors = this._bufferGridColor.getData();
@@ -1062,8 +1068,8 @@ Draw.prototype.drawLine6 = function(x0,y0,z0,x1,y1,z1){
     if(positions[0] != x0 ||
        positions[1] != y0 ||
        positions[2] != z0 ||
-       positions[3] != z1 ||
-       positions[4] != z1 ||
+       positions[3] != x1 ||
+       positions[4] != y1 ||
        positions[5] != z1){
         positions[0] = x0;
         positions[1] = y0;
@@ -1594,6 +1600,57 @@ Draw.prototype.drawCamera = function(){
 
 Draw.prototype.drawFrustum = function(){
 
+};
+
+Draw.prototype.debugRay = function(ray,useDirectionColor){
+    useDirectionColor = useDirectionColor === undefined ? false : useDirectionColor;
+
+    var color = Vec4.set(this._tempVec30,this._color);
+    var start = ray[0];
+    var end   = Vec3.add(Vec3.set(this._tempVec31,start),Vec3.scale(Vec3.set(this._tempVec32,ray[1]),1000));
+
+    if(useDirectionColor){
+        this.setColor4(0.5 + ray[1][0] * 0.5,0.5 + ray[1][1] * 0.5,0.5 + ray[1][2] * 0.5,1);
+    }
+    this.drawLine(start,end);
+    this.setColor4(0,1,0,1);
+    this.drawPoint(start);
+
+    this.setColor(color);
+};
+
+Draw.prototype.debugPlane = function(plane,useNormalColor,planeScale,normalScale){
+    planeScale     = planeScale === undefined ? 1.0 : planeScale;
+    normalScale    = normalScale === undefined ? 1.0 : normalScale;
+    useNormalColor = useNormalColor === undefined ? true : useNormalColor;
+
+    var pointSize = this._pointSize;
+    var color     = Vec4.set(this._tempVec30,this._color);
+
+    var point  = plane[0];
+    var normal = plane[1];
+
+    if(useNormalColor){
+        this.setColor4(0.5 + normal[0] * 0.5,0.5 + normal[1] * 0.5,0.5 + normal[2] * 0.5,1.0);
+    }
+    this._ctx.pushModelMatrix();
+        this._ctx.translate(point);
+        this._ctx.pushModelMatrix();
+            this._ctx.rotateQuat(Quat.fromDirection(this._tempQuat0,normal,AXIS_Y));
+            this._ctx.translate(Vec3.set3(this._tempVec31,-0.5,-0.5,0));
+            this._ctx.scale(Vec3.set3(this._tempVec31,planeScale,planeScale,planeScale));
+            this.drawRectStroked();
+        this._ctx.popModelMatrix();
+        if(normalScale !== 1.0){
+            this._ctx.scale(Vec3.set3(this._tempVec31,normalScale,normalScale,normalScale));
+        }
+        this.drawVector(VEC3_ZERO,Vec3.set(this._tempVec31,normal),0.0625,0.0375);
+    this._ctx.popModelMatrix();
+    this.setPointSize(4);
+    this.setColor4(0,1,0,1);
+    this.drawPoint(point);
+    this.setColor(color);
+    this.setPointSize(pointSize);
 };
 
 module.exports = Draw;
