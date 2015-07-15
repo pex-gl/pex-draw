@@ -1605,7 +1605,9 @@ Draw.prototype.drawFrustum = function(){
 Draw.prototype.debugRay = function(ray,useDirectionColor){
     useDirectionColor = useDirectionColor === undefined ? false : useDirectionColor;
 
-    var color = Vec4.set(this._tempVec30,this._color);
+    var pointSize = this._pointSize;
+    var color     = Vec4.set(this._tempVec30,this._color);
+
     var start = ray[0];
     var end   = Vec3.add(Vec3.set(this._tempVec31,start),Vec3.scale(Vec3.set(this._tempVec32,ray[1]),1000));
 
@@ -1613,10 +1615,13 @@ Draw.prototype.debugRay = function(ray,useDirectionColor){
         this.setColor4(0.5 + ray[1][0] * 0.5,0.5 + ray[1][1] * 0.5,0.5 + ray[1][2] * 0.5,1);
     }
     this.drawLine(start,end);
+
+    this.setPointSize(4);
     this.setColor4(0,1,0,1);
     this.drawPoint(start);
 
     this.setColor(color);
+    this.setPointSize(pointSize);
 };
 
 Draw.prototype.debugPlane = function(plane,useNormalColor,planeScale,normalScale){
@@ -1646,9 +1651,11 @@ Draw.prototype.debugPlane = function(plane,useNormalColor,planeScale,normalScale
         }
         this.drawVector(VEC3_ZERO,Vec3.set(this._tempVec31,normal),0.0625,0.0375);
     this._ctx.popModelMatrix();
+
     this.setPointSize(4);
     this.setColor4(0,1,0,1);
     this.drawPoint(point);
+
     this.setColor(color);
     this.setPointSize(pointSize);
 };
