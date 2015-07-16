@@ -1565,10 +1565,42 @@ Draw.prototype.drawScreenAlignedRect = function(x,y,width,height,windowWidth,win
 
 // DEBUG
 
-Draw.prototype.drawArcball = function(arcball,showAxesDragArea){
+Draw.prototype.drawArcball = function(arcball,showAxesDragArea,showPanOrigin){
     showAxesDragArea = showAxesDragArea === undefined ? false : showAxesDragArea;
+    showPanOrigin    = showPanOrigin    === undefined ? true  : showPanOrigin;
 
-    this.drawPivotRotation();
+    var ctx = this._ctx;
+
+    ctx.pushModelMatrix();
+        ctx.translate(arcball._camera.getTarget());
+        this.drawPivotRotation();
+    ctx.popModelMatrix();
+
+    if(showPanOrigin && arcball.isPanning()){
+        ctx.pushModelMatrix();
+            ctx.translate(arcball._camera.getTarget());
+            ctx.pushModelMatrix();
+                ctx.scale([0.25,0.25,0.25]);
+                this.drawPivotAxes();
+            ctx.popModelMatrix();
+        ctx.popModelMatrix();
+
+        ctx.pushModelMatrix();
+            ctx.translate(arcball._planePosDownWorld);
+            ctx.pushModelMatrix();
+                ctx.scale([0.25,0.25,0.25]);
+                this.drawPivotAxes();
+            ctx.popModelMatrix();
+        ctx.popModelMatrix();
+
+        ctx.pushModelMatrix();
+            ctx.translate(arcball._planePosDragWorld);
+            ctx.pushModelMatrix();
+                ctx.scale([0.25,0.25,0.25]);
+                this.drawPivotAxes();
+            ctx.popModelMatrix();
+        ctx.popModelMatrix();
+    }
 
     if(showAxesDragArea){
         this._ctx.pushMatrices();
