@@ -1681,7 +1681,7 @@ Draw.prototype.debugAABB = function(aabb,showMinMax,showCenter){
     this._ctx.pushModelMatrix();
         this._ctx.translate(center);
         this._ctx.scale(AABB.size(aabb,this._tempVec30));
-        this.drawCube();
+        this.drawCubeStroked();
     this._ctx.popModelMatrix();
 
     if(showMinMax || showCenter){
