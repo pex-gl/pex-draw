@@ -1480,10 +1480,10 @@ Draw.prototype.drawCubePoints = function(scale){
 
     if(this._programHasAttribColor){
         var colors = this._bufferCubePointsColor.getData();
-        if(Vec4.equals(colors,this._color)){
+        if(!Vec4.equals(colors,this._color)){
             arrFillVec4(colors,this._color);
+            this._bufferCubePointsColor.bufferData();
         }
-        this._bufferCubePointsColor.bufferData();
     }
 
     this._ctx.bindVertexArray(this._vaoCubePoints);
@@ -1508,10 +1508,10 @@ Draw.prototype.drawCubeStroked = function(scale){
 
     if(this._programHasAttribColor){
         var colors = this._bufferCubeStrokedColor.getData();
-        if(Vec4.equals(colors,this._color)){
+        if(!Vec4.equals(colors,this._color)){
             arrFillVec4(colors,this._color);
+            this._bufferCubeStrokedColor.bufferData();
         }
-        this._bufferCubePointsColor.bufferData();
     }
 
     this._ctx.bindVertexArray(this._vaoCubeStroked);
@@ -1680,11 +1680,12 @@ Draw.prototype.debugAABB = function(aabb,showMinMax,showCenter){
 
     this._ctx.pushModelMatrix();
         this._ctx.translate(center);
-        this.drawCubeStroked(AABB.size(aabb,this._tempVec31));
+        this._ctx.scale(AABB.size(aabb,this._tempVec30));
+        this.drawCube();
     this._ctx.popModelMatrix();
 
     if(showMinMax || showCenter){
-        this.setPointSize(pointSize);
+        this.setPointSize(4);
     }
 
     if(showMinMax){
