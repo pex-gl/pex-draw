@@ -3,6 +3,7 @@ var Vec3 = require('pex-math/Vec3');
 var Quat = require('pex-math/Quat');
 var Vec4 = require('pex-math/Vec4');
 var Mat4 = require('pex-math/Mat4');
+var AABB = require('pex-geom/AABB');
 
 var MAT4_IDENTITY = Mat4.create();
 var VEC2_ONE      = [1,1];
@@ -731,27 +732,37 @@ Draw.prototype.drawPivotAxes = function(axisLength, headLength, headRadius){
     this._ctx.drawElements(this._ctx.TRIANGLES,126);
 };
 
-Draw.prototype.drawPivotRotation = function(scale){
-    scale = (scale === undefined ? 1.0 : scale) * 2.0;
+Draw.prototype.drawPivotRotation = function(scale,alphaX,alphaY,alphaZ){
+    scale  = (scale === undefined ? 1.0 : scale) * 2.0;
+    alphaX = alphaX === undefined ? 1.0 : alphaX;
+    alphaY = alphaY === undefined ? 1.0 : alphaY;
+    alphaZ = alphaZ === undefined ? 1.0 : alphaZ;
 
     var numSegmentsCircle = this._numSegmentsCircle;
     var color             = Vec4.set(this._tempVec40,this._color);
+    var blend             = this._ctx.getBlend();
+    var blendFunc         = this._ctx.getBlendFunc();
+
+    this._ctx.setBlend(alphaX !== 1.0 || alphaY !== 1.0 || alphaZ !== 1.0);
+    this._ctx.setBlendFunc(this._ctx.SRC_ALPHA,this._ctx.ONE_MINUS_SRC_ALPHA);
 
     this.setCircleNumSegments(60);
     this._ctx.pushModelMatrix();
         this._ctx.scale(Vec3.set3(this._tempVec30,scale,scale,scale));
-        this.setColor4(0,0,1,1);
+        this.setColor4(0,0,1,alphaZ);
         this.drawCircleStroked();
         this._ctx.rotateXYZ(Vec3.set3(this._tempVec31,Math.PI * 0.5,0,0));
-        this.setColor4(0,1,0,1);
+        this.setColor4(0,1,0,alphaY);
         this.drawCircleStroked();
         this._ctx.rotateXYZ(Vec3.set3(this._tempVec32,0,Math.PI * 0.5,0));
-        this.setColor4(1,0,0,1);
+        this.setColor4(1,0,0,alphaX);
         this.drawCircleStroked();
     this._ctx.popModelMatrix();
 
     this.setColor(color);
     this.setCircleNumSegments(numSegmentsCircle);
+    this._ctx.setBlendFunc(blendFunc[0],blendFunc[1]);
+    this._ctx.setBlend(blend);
 };
 
 Draw.prototype.drawQuat = function(){
@@ -1084,12 +1095,14 @@ Draw.prototype.drawLine6 = function(x0,y0,z0,x1,y1,z1){
     this._ctx.drawArrays(this._ctx.LINES, 0, 2);
 };
 
-Draw.prototype.drawLineStripFlat = function(lines){
+Draw.prototype.drawLineStripFlat = function(lines,loop){
     this._updateProgramProperties();
 
     if(!this._programHasAttribPosition){
         return;
     }
+
+    loop = loop === undefined ? false : loop;
 
     var exceedsDstLen;
     var srcLen = lines.length;
@@ -1124,11 +1137,11 @@ Draw.prototype.drawLineStripFlat = function(lines){
     }
 
     this._ctx.bindVertexArray(this._vaoLineStrip);
-    this._ctx.drawArrays(this._ctx.LINE_STRIP, 0, numElements);
+    this._ctx.drawArrays(loop ? this._ctx.LINE_LOOP : this._ctx.LINE_STRIP, 0, numElements);
 };
 
-Draw.prototype.drawLineStrip = function(lines){
-    this.drawLineStripFlat(arrUnpack3(lines,this._tempArrLineStrip));
+Draw.prototype.drawLineStrip = function(lines,loop){
+    this.drawLineStripFlat(arrUnpack3(lines,this._tempArrLineStrip),loop);
 };
 
 Draw.prototype.drawLines = function(lines){
@@ -1443,7 +1456,7 @@ Draw.prototype.drawCubeColored = function(scale){
     if(!this._programHasAttribPosition){
         return;
     }
-   
+
     this._ctx.bindVertexArray(this._vaoCubeColored);
 
     if(scale !== undefined){
@@ -1570,10 +1583,32 @@ Draw.prototype.drawArcball = function(arcball,showAxesDragArea,showPanOrigin){
     showPanOrigin    = showPanOrigin    === undefined ? true  : showPanOrigin;
 
     var ctx = this._ctx;
+    var isConstrained = arcball.isConstrained();
 
     ctx.pushModelMatrix();
         ctx.translate(arcball._camera.getTarget());
-        this.drawPivotRotation();
+        this.drawPivotRotation(1.0,
+            isConstrained ? 0.025 : 1.0,
+            isConstrained ? 0.025 : 1.0,
+            isConstrained ? 0.025 : 1.0
+        );
+        if(isConstrained){
+            ctx.pushModelMatrix();
+                var rotation = Mat4.invert(arcball._camera.getViewMatrix());
+                Mat4.setTranslation3(rotation,0,0,0);
+                ctx.multMatrix(rotation);
+
+                var xa = arcball._constrainAxisIndex == 0 ? 1.0 : 0;
+                var ya = arcball._constrainAxisIndex == 1 ? 1.0 : 0;
+                var za = arcball._constrainAxisIndex == 2 ? 1.0 : 0;
+
+                ctx.scale(Vec3.set3(this._tempVec30,0.5,0.5,0.5));
+
+                this.setColor4(xa,ya,za,1.0);
+                this.drawVector6(0,0,0,xa,ya,za);
+                this.drawPivotRotation(1.0,xa,ya,za);
+            ctx.popModelMatrix();
+        }
     ctx.popModelMatrix();
 
     if(showPanOrigin && arcball.isPanning()){
@@ -1634,11 +1669,45 @@ Draw.prototype.drawFrustum = function(){
 
 };
 
+Draw.prototype.debugAABB = function(aabb,showMinMax,showCenter){
+    showMinMax = showMinMax === undefined ? false : showMinMax;
+    showCenter = showCenter === undefined ? false : showCenter;
+
+    var pointSize = this._pointSize;
+    var color     = Vec4.set(this._tempVec40,this._color);
+
+    var center = AABB.center(aabb,this._tempVec30);
+
+    this._ctx.pushModelMatrix();
+        this._ctx.translate(center);
+        this.drawCubeStroked(AABB.size(aabb,this._tempVec31));
+    this._ctx.popModelMatrix();
+
+    if(showMinMax || showCenter){
+        this.setPointSize(pointSize);
+    }
+
+    if(showMinMax){
+        this.setColor4(1,0,0,1);
+        this.drawPoint(aabb[0]);
+        this.setColor4(0,0,1,1);
+        this.drawPoint(aabb[1]);
+    }
+
+    if(showCenter){
+        this.setColor4(1,0,1,1);
+        this.drawPoint(center);
+    }
+
+    this.setColor(color);
+    this.setPointSize(pointSize);
+};
+
 Draw.prototype.debugRay = function(ray,useDirectionColor){
     useDirectionColor = useDirectionColor === undefined ? false : useDirectionColor;
 
     var pointSize = this._pointSize;
-    var color     = Vec4.set(this._tempVec30,this._color);
+    var color     = Vec4.set(this._tempVec40,this._color);
 
     var start = ray[0];
     var end   = Vec3.add(Vec3.set(this._tempVec31,start),Vec3.scale(Vec3.set(this._tempVec32,ray[1]),1000));
