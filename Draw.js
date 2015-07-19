@@ -2,6 +2,7 @@ var Vec2 = require('pex-math/Vec2');
 var Vec3 = require('pex-math/Vec3');
 var Quat = require('pex-math/Quat');
 var Vec4 = require('pex-math/Vec4');
+var Mat3 = require('pex-math/Mat3');
 var Mat4 = require('pex-math/Mat4');
 var AABB = require('pex-geom/AABB');
 
@@ -9,6 +10,15 @@ var MAT4_IDENTITY = Mat4.create();
 var VEC2_ONE      = [1,1];
 var VEC3_ZERO     = [0,0,0];
 var AXIS_Y        = [0,1,0];
+
+var DEFAULT_VECTOR_HEAD_LENGTH = 0.125 * 0.5;
+var DEFAULT_VECTOR_HEAD_RADIUS = 0.075 * 0.5;
+
+var NORMAL_HEAD_LENGTH = DEFAULT_VECTOR_HEAD_LENGTH * 0.5;
+var NORMAL_HEAD_RADIUS = DEFAULT_VECTOR_HEAD_RADIUS * 0.5;
+
+var GIZMO_ROTATION_FOCUS_AXIS_LINE_WIDTH_SCALE = 3;
+var GIZMO_ROTATION_FOCUS_PIVOT_SCALE = 0.25;
 
 function createArrWithValuesArgs(numElements,args){
     var elementSize = arguments.length - 1;
@@ -547,6 +557,7 @@ function Draw(ctx){
         { buffer : this._bufferVectorColor,    location : ctx.ATTRIB_COLOR,    size : 4 }
     ], this._bufferVectorIndex);
 
+
     // TEMP
     this._tempVec20 = Vec2.create();
     this._tempVec30 = Vec3.create();
@@ -557,6 +568,7 @@ function Draw(ctx){
     this._tempVec35 = Vec3.create();
     this._tempVec40 = Vec4.create();
     this._tempQuat0 = Quat.create();
+    this._tempMat30 = Mat3.create();
     this._tempMat40 = Mat4.create();
     this._tempMat41 = Mat4.create();
     this._tempMat42 = Mat4.create();
@@ -716,9 +728,9 @@ Draw.prototype._updatePivotGeom = function(axisLength, headLength, headRadius){
 };
 
 Draw.prototype.drawPivotAxes = function(axisLength, headLength, headRadius){
-    axisLength = axisLength === undefined ? 1.0   : axisLength;
-    headLength = headLength === undefined ? 0.125 : headLength;
-    headRadius = headRadius === undefined ? 0.075 : headRadius;
+    axisLength = axisLength === undefined ? 1.0 : axisLength;
+    headLength = headLength === undefined ? DEFAULT_VECTOR_HEAD_LENGTH : headLength;
+    headRadius = headRadius === undefined ? DEFAULT_VECTOR_HEAD_RADIUS : headRadius;
 
     this._updateProgramProperties();
 
@@ -732,38 +744,209 @@ Draw.prototype.drawPivotAxes = function(axisLength, headLength, headRadius){
     this._ctx.drawElements(this._ctx.TRIANGLES,126);
 };
 
-Draw.prototype.drawPivotRotation = function(scale,alphaX,alphaY,alphaZ){
-    scale  = (scale === undefined ? 1.0 : scale) * 2.0;
-    alphaX = alphaX === undefined ? 1.0 : alphaX;
-    alphaY = alphaY === undefined ? 1.0 : alphaY;
-    alphaZ = alphaZ === undefined ? 1.0 : alphaZ;
+
+Draw.prototype.gizmoTranslation = function(scale,showViewPlane,showXPlane,showYPlane,showZPlane,ratioPlanes){
+    scale = scale === undefined ? 1.0 : scale;
+
+    showViewPlane = showViewPlane === undefined ? false : showViewPlane;
+    showXPlane    = showXPlane === undefined ? false : showXPlane;
+    showYPlane    = showYPlane === undefined ? false : showYPlane;
+    showZPlane    = showZPlane === undefined ? false : showZPlane;
+    ratioPlanes   = ratioPlanes === undefined ? 0.25 : ratioPlanes;
+
+    var ctx   = this._ctx;
+
+    var color     = Vec4.set(this._tempVec40,this._color);
+    var blend     = ctx.getBlend();
+    var blendFunc = ctx.getBlendFunc();
+
+    this.drawPivotAxes(scale);
+
+    if(showViewPlane || showXPlane || showYPlane || showZPlane){
+        ctx.setBlend(true);
+        ctx.setBlendFunc(ctx.SRC_ALPHA,ctx.ONE_MINUS_SRC_ALPHA);
+
+        ctx.pushModelMatrix();
+            ctx.scale(Vec3.set3(this._tempVec30,ratioPlanes,ratioPlanes,ratioPlanes));
+            if(showViewPlane){
+                var rotation = Mat4.fromMat3(this._tempMat40,Mat3.fromMat4(this._tempMat30,Mat4.invert(ctx.getViewMatrix())));
+
+                ctx.pushModelMatrix();
+                    ctx.multMatrix(rotation);
+                    ctx.translate(Vec3.set3(this._tempVec30,-0.5,-0.5,0));
+
+                    this.setColor4(0.5,0.5,0.5,0.5);
+                    this.drawRect();
+                    this.setColor4(0.5,0.5,0.5,1);
+                    this.drawRectStroked();
+                ctx.popModelMatrix();
+            }
+
+            if(showXPlane || showYPlane || showZPlane){
+                if(showZPlane){
+                    this.setColor4(0,0,1,0.5);
+                    this.drawRect();
+                    this.setColor4(0,0,1,1);
+                    this.drawRectStroked();
+                }
+
+                if(showYPlane || showXPlane){
+                    ctx.rotateXYZ(Vec3.set3(this._tempVec30,Math.PI * 0.5,0,0));
+                }
+
+                if(showYPlane){
+                    this.setColor4(0,1,0,0.5);
+                    this.drawRect();
+                    this.setColor4(0,1,0,1);
+                    this.drawRectStroked();
+                }
+
+                if(showXPlane){
+                    ctx.rotateXYZ(Vec3.set3(this._tempVec30,0,Math.PI * 0.5,0));
+
+                    this.setColor4(1,0,0,0.5);
+                    this.drawRect();
+                    this.setColor4(1,0,0,1);
+                    this.drawRectStroked();
+                }
+            }
+        ctx.popModelMatrix();
+
+        this.setColor(color);
+        ctx.setBlendFunc(blendFunc[0],blendFunc[1]);
+        ctx.setBlend(blend);
+    }
+};
+
+Draw.prototype.gizmoRotation = function(scale,showAxes,focusXAxis,focusYAxis,focusZAxis,showSphere){
+    scale  = scale === undefined ? 1.0 : scale;
+
+    focusXAxis = focusXAxis === undefined ? false : focusXAxis;
+    focusYAxis = focusYAxis === undefined ? false : focusYAxis;
+    focusZAxis = focusZAxis === undefined ? false : focusZAxis;
+    showSphere = showSphere === undefined ? true  : showSphere;
+
+    var ctx = this._ctx;
 
     var numSegmentsCircle = this._numSegmentsCircle;
+    var lineWidth         = ctx.getLineWidth();
     var color             = Vec4.set(this._tempVec40,this._color);
-    var blend             = this._ctx.getBlend();
-    var blendFunc         = this._ctx.getBlendFunc();
 
-    this._ctx.setBlend(alphaX !== 1.0 || alphaY !== 1.0 || alphaZ !== 1.0);
-    this._ctx.setBlendFunc(this._ctx.SRC_ALPHA,this._ctx.ONE_MINUS_SRC_ALPHA);
+    var invViewMatrix = ctx.getViewMatrix(this._tempMat40);
+    Mat4.invert(invViewMatrix);
+    Mat4.setTranslation3(invViewMatrix,0,0,0);
+
+    var rotationY = Vec3.set3(this._tempVec31,-Math.PI * 0.5,0,0);
+    var rotationX = Vec3.set3(this._tempVec32,0,Math.PI * 0.5,0);
 
     this.setCircleNumSegments(60);
-    this._ctx.pushModelMatrix();
-        this._ctx.scale(Vec3.set3(this._tempVec30,scale,scale,scale));
-        this.setColor4(0,0,1,alphaZ);
-        this.drawCircleStroked();
-        this._ctx.rotateXYZ(Vec3.set3(this._tempVec31,Math.PI * 0.5,0,0));
-        this.setColor4(0,1,0,alphaY);
-        this.drawCircleStroked();
-        this._ctx.rotateXYZ(Vec3.set3(this._tempVec32,0,Math.PI * 0.5,0));
-        this.setColor4(1,0,0,alphaX);
-        this.drawCircleStroked();
-    this._ctx.popModelMatrix();
+
+    if(showSphere){
+        ctx.pushModelMatrix();
+            //ctx.loadIdentity();
+            ctx.multMatrix(invViewMatrix);
+            //TODO: Replace with sphere for masking
+            //ctx.setDepthTest(false);
+            //ctx.setColorMask(false,false,false,false);
+            //this.drawCircle(scale * 0.5);
+            //ctx.setColorMask(true,true,true,true);
+            this.setColor4(0.25,0.25,0.25,1.0);
+            this.drawCircleStroked(scale * 0.5);
+            //ctx.setDepthTest(true);
+        ctx.popModelMatrix();
+    }
+
+    ctx.pushModelMatrix();
+        ctx.scale(Vec3.set3(this._tempVec30,scale,scale,scale));
+        ctx.pushModelMatrix();
+            var axisFocused = focusXAxis || focusYAxis || focusZAxis;
+            if(axisFocused || showAxes){
+                this.setColor4(0.25,0.25,0.25,1.0);
+                this.drawLine6(0,0,0, GIZMO_ROTATION_FOCUS_PIVOT_SCALE,0,0);
+                this.drawLine6(0,0,0, 0,GIZMO_ROTATION_FOCUS_PIVOT_SCALE,0);
+                this.drawLine6(0,0,0, 0,0,GIZMO_ROTATION_FOCUS_PIVOT_SCALE);
+            }
+            if(axisFocused){
+                var depthTest = ctx.getDepthTest();
+                var blend     = ctx.getBlend();
+                var blendFunc = ctx.getBlendFunc();
+
+                this.setColor4(0.25,0.25,0.25,0.25);
+
+                ctx.setDepthTest(false);
+                ctx.setBlendFunc(ctx.SRC_ALPHA,ctx.ONE_MINUS_SRC_ALPHA);
+
+                if(focusZAxis){
+                    ctx.setBlend(true);
+                    this.drawCircle();
+                    ctx.setBlend(blend);
+                    this.drawCircleStroked();
+                }
+                ctx.rotateXYZ(rotationY);
+                if(focusYAxis){
+                    ctx.setBlend(true);
+                    this.drawCircle();
+                    ctx.setBlend(blend);
+                    this.drawCircleStroked();
+                }
+                ctx.rotateXYZ(rotationX);
+                if(focusXAxis){
+                    ctx.setBlend(true);
+                    this.drawCircle();
+                    ctx.setBlend(blend);
+                    this.drawCircleStroked();
+                }
+
+                ctx.setBlendFunc(blendFunc[0],blendFunc[1]);
+                ctx.setDepthTest(depthTest);
+                ctx.setBlend(blend);
+            }
+        ctx.popModelMatrix();
+        ctx.pushModelMatrix();
+            this.setColor4(0,0,1,1);
+            if(focusZAxis){
+                ctx.setLineWidth(lineWidth * GIZMO_ROTATION_FOCUS_AXIS_LINE_WIDTH_SCALE);
+                this.drawCircleStroked();
+                this.drawLine6(0,0,0, 0,0,0.5);
+                ctx.setLineWidth(lineWidth);
+            }
+            else {
+                this.drawCircleStroked();
+            }
+
+            ctx.rotateXYZ(rotationY);
+            this.setColor4(0,1,0,1);
+            if(focusYAxis){
+                ctx.setLineWidth(lineWidth * GIZMO_ROTATION_FOCUS_AXIS_LINE_WIDTH_SCALE);
+                this.drawCircleStroked();
+                this.drawLine6(0,0,0, 0,0,0.5);
+                ctx.setLineWidth(lineWidth);
+            }
+            else {
+                this.drawCircleStroked();
+            }
+
+            ctx.rotateXYZ(rotationX);
+            this.setColor4(1,0,0,1);
+            if(focusXAxis){
+                ctx.setLineWidth(lineWidth * GIZMO_ROTATION_FOCUS_AXIS_LINE_WIDTH_SCALE);
+                this.drawCircleStroked();
+                this.drawLine6(0,0,0, 0,0,0.5);
+                ctx.setLineWidth(lineWidth);
+            }
+            else {
+                this.drawCircleStroked();
+            }
+        ctx.popModelMatrix();
+    ctx.popModelMatrix();
 
     this.setColor(color);
     this.setCircleNumSegments(numSegmentsCircle);
-    this._ctx.setBlendFunc(blendFunc[0],blendFunc[1]);
-    this._ctx.setBlend(blend);
+    ctx.setLineWidth(lineWidth);
 };
+
+//NOTE: We keep this for now
+Draw.prototype.drawPivotRotation = Draw.prototype.gizmoRotation;
 
 Draw.prototype.drawQuat = function(){
 
@@ -795,8 +978,8 @@ Draw.prototype.drawVector6 = function(x0,y0,z0,x1,y1,z1,headLength,headRadius){
         x0 = y0 = z0 = 0;
     }
 
-    headLength = headLength === undefined ? 0.125 : headLength;
-    headRadius = headRadius === undefined ? 0.075 : headRadius;
+    headLength = headLength === undefined ? DEFAULT_VECTOR_HEAD_LENGTH : headLength;
+    headRadius = headRadius === undefined ? DEFAULT_VECTOR_HEAD_RADIUS : headRadius;
 
     var start = Vec3.set3(this._tempVec30,x0,y0,z0);
     var end   = Vec3.set3(this._tempVec31,x1,y1,z1);
@@ -849,7 +1032,6 @@ Draw.prototype.drawVector6 = function(x0,y0,z0,x1,y1,z1,headLength,headRadius){
                 Vec3.set3(axis,0,1,0);
             }
         }
-
 
         var axisScaled = Vec3.scale(Vec3.set(this._tempVec35,axis),axisLength - headLength);
         Vec3.add(Vec3.set(end,start),axisScaled);
@@ -1539,10 +1721,6 @@ Draw.prototype.drawSphereStroked = function(){
 
 };
 
-Draw.prototype.drawCylinder = function(){
-
-};
-
 Draw.prototype.drawFrustum = function(){
 
 };
@@ -1578,90 +1756,80 @@ Draw.prototype.drawScreenAlignedRect = function(x,y,width,height,windowWidth,win
 
 // DEBUG
 
-Draw.prototype.drawArcball = function(arcball,showAxesDragArea,showPanOrigin){
+Draw.prototype.debugArcball = function(arcball,showAxesDragArea,showPanOrigin){
     showAxesDragArea = showAxesDragArea === undefined ? false : showAxesDragArea;
     showPanOrigin    = showPanOrigin    === undefined ? true  : showPanOrigin;
 
     var ctx = this._ctx;
+    var camera = arcball._camera;
+    var target = camera.getTarget(this._tempVec34);
+
     var isConstrained = arcball.isConstrained();
+    var isDragging    = arcball.isDragging();
+    var isPanning     = arcball.isPanning();
 
     ctx.pushModelMatrix();
-        ctx.translate(arcball._camera.getTarget());
-        this.drawPivotRotation(1.0,
-            isConstrained ? 0.025 : 1.0,
-            isConstrained ? 0.025 : 1.0,
-            isConstrained ? 0.025 : 1.0
-        );
+        ctx.translate(target);
+
         if(isConstrained){
-            ctx.pushModelMatrix();
-                var rotation = Mat4.invert(arcball._camera.getViewMatrix());
-                Mat4.setTranslation3(rotation,0,0,0);
-                ctx.multMatrix(rotation);
+            var axisX = arcball._constrainAxisIndex == 0;
+            var axisY = arcball._constrainAxisIndex == 1;
+            var axisZ = arcball._constrainAxisIndex == 2;
 
-                var xa = arcball._constrainAxisIndex == 0 ? 1.0 : 0;
-                var ya = arcball._constrainAxisIndex == 1 ? 1.0 : 0;
-                var za = arcball._constrainAxisIndex == 2 ? 1.0 : 0;
+            if(arcball._constrainMode == 0){
+                var rotation = Mat4.fromMat3(this._tempMat40,Mat3.fromMat4(this._tempMat30,camera.getInverseViewMatrix()));
 
-                ctx.scale(Vec3.set3(this._tempVec30,0.5,0.5,0.5));
-
-                this.setColor4(xa,ya,za,1.0);
-                this.drawVector6(0,0,0,xa,ya,za);
-                this.drawPivotRotation(1.0,xa,ya,za);
-            ctx.popModelMatrix();
+                ctx.pushModelMatrix();
+                    ctx.multMatrix(rotation);
+                    ctx.scale(Vec3.set3(this._tempVec30, 1.0, 1.0, 1.0));
+                    this.gizmoRotation(1.0,false,axisX,axisY,axisZ,false);
+                ctx.popModelMatrix();
+            }else{
+                this.gizmoRotation(1,true,axisX,axisY,axisZ);
+            }
+        }
+        else{
+            this.gizmoRotation(1,isDragging || isPanning);
         }
     ctx.popModelMatrix();
 
-    if(showPanOrigin && arcball.isPanning()){
-        ctx.pushModelMatrix();
-            ctx.translate(arcball._camera.getTarget());
-            ctx.pushModelMatrix();
-                ctx.scale([0.25,0.25,0.25]);
-                this.drawPivotAxes();
-            ctx.popModelMatrix();
-        ctx.popModelMatrix();
+    if(showPanOrigin && isPanning){
+        this.gizmoTranslation(0.5,true,false,false,false,0.125);
 
-        ctx.pushModelMatrix();
-            ctx.translate(arcball._planePosDownWorld);
+        if(isDragging){
             ctx.pushModelMatrix();
-                ctx.scale([0.25,0.25,0.25]);
-                this.drawPivotAxes();
+                ctx.translate(arcball._planePosDownWorld);
+                this.gizmoTranslation(0.5,true,false,false,false,0.125);
             ctx.popModelMatrix();
-        ctx.popModelMatrix();
-
-        ctx.pushModelMatrix();
-            ctx.translate(arcball._planePosDragWorld);
-            ctx.pushModelMatrix();
-                ctx.scale([0.25,0.25,0.25]);
-                this.drawPivotAxes();
-            ctx.popModelMatrix();
-        ctx.popModelMatrix();
+        }
     }
 
     if(showAxesDragArea){
-        this._ctx.pushMatrices();
-            var bounds      = arcball.getBoundsSize(this._tempVec20);
-            var radiusScale = arcball.getRadiusScale();
-            var radius      = Math.min(bounds[0],bounds[1]) * radiusScale;
+        var color = Vec4.set(this._tempVec40,this._color);
+        var numSegmentsCircle = this._numSegmentsCircle;
 
-            this._ctx.loadIdentities();
-            this._ctx.setProjectionMatrix(Mat4.ortho(this._tempMat40,0,bounds[0],bounds[1],0,-1,1));
+        var bounds = arcball._boundsSize;
+        var center = arcball._center;
 
-            var color = Vec4.set(this._tempVec40,this._color);
-            var numSegmentsCircle = this._numSegmentsCircle;
+        this.setCircleNumSegments(60);
 
-            this._ctx.translate(Vec3.set3(this._tempVec30,bounds[0] * 0.5, bounds[1] * 0.5, 0));
+        ctx.pushMatrices();
+            ctx.loadIdentities();
+            ctx.setViewMatrix(Mat4.ortho(this._tempMat40,0,bounds[0],bounds[1],0,-1,1));
+            ctx.translate(Vec3.set3(this._tempVec30,center[0],center[1],0));
+            this.setColor4(0.25,0.25,0.25,1.0);
 
-            this.setColor4(0.25,0.25,0.25,1);
-            this.setCircleNumSegments(64);
-            this.drawCircleStroked(radius);
+            this.drawCircleStroked(bounds[1] * arcball._radiusScale);
+        ctx.popMatrices();
 
-            this.setColor(color);
-            this.setCircleNumSegments(numSegmentsCircle);
-        this._ctx.popMatrices();
+        this.setCircleNumSegments(numSegmentsCircle);
+        this.setColor(color);
     }
 };
 
-Draw.prototype.drawCamera = function(){
+Draw.prototype.drawArcball = Draw.prototype.debugArcball;
+
+Draw.prototype.debugCamera = function(){
 
 };
 
@@ -1751,7 +1919,7 @@ Draw.prototype.debugPlane = function(plane,useNormalColor,planeScale,normalScale
         if(normalScale !== 1.0){
             this._ctx.scale(Vec3.set3(this._tempVec31,normalScale,normalScale,normalScale));
         }
-        this.drawVector(VEC3_ZERO,Vec3.set(this._tempVec31,normal),0.0625,0.0375);
+        this.drawVector(VEC3_ZERO,normal,NORMAL_HEAD_LENGTH,NORMAL_HEAD_RADIUS);
     this._ctx.popModelMatrix();
 
     this.setPointSize(4);
