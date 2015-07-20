@@ -4,7 +4,9 @@ var Quat = require('pex-math/Quat');
 var Vec4 = require('pex-math/Vec4');
 var Mat3 = require('pex-math/Mat3');
 var Mat4 = require('pex-math/Mat4');
+var Rect = require('pex-geom/Rect');
 var AABB = require('pex-geom/AABB');
+
 
 var MAT4_IDENTITY = Mat4.create();
 var VEC2_ONE      = [1,1];
@@ -1835,6 +1837,43 @@ Draw.prototype.debugCamera = function(){
 
 Draw.prototype.drawFrustum = function(){
 
+};
+
+Draw.prototype.debugRect = function(rect,showMinMax,showCenter){
+    showMinMax = showMinMax === undefined ? false : showMinMax;
+    showCenter = showCenter === undefined ? false : showCenter;
+
+    var pointSize = this._pointSize;
+    var color     = Vec4.set(this._tempVec40,this._color);
+
+    var origin = Vec3.set3(this._tempVec30,rect[0][0],rect[0][1],0);
+    var size   = Rect.getSize(rect,this._tempVec20);
+
+    this._ctx.pushModelMatrix();
+        this._ctx.translate(origin);
+        this.drawRectStroked(size[0],size[1]);
+    this._ctx.popModelMatrix();
+
+    if(showMinMax || showCenter){
+        this.setPointSize(4);
+    }
+
+    if(showMinMax){
+        this.setColor4(1,0,0,1);
+        this.drawPoint(Vec3.set3(this._tempVec30,rect[0][0],rect[0][1],0));
+        this.setColor4(0,0,1,1);
+        this.drawPoint(Vec3.set3(this._tempVec30,rect[1][0],rect[1][1],0));
+    }
+
+    if(showCenter){
+        var center = Rect.getCenter(rect,this._tempVec20);
+            center = Vec3.set3(this._tempVec30,center[0],center[1],0);
+        this.setColor4(1,0,1,1);
+        this.drawPoint(center);
+    }
+
+    this.setColor(color);
+    this.setPointSize(pointSize);
 };
 
 Draw.prototype.debugAABB = function(aabb,showMinMax,showCenter){
