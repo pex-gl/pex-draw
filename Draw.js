@@ -1859,11 +1859,13 @@ Draw.prototype.debugRect = function(rect,showMinMax,showCenter){
     var pointSize = this._pointSize;
     var color     = Vec4.set(this._tempVec40,this._color);
 
-    var origin = Vec3.set3(this._tempVec30,rect[0][0],rect[0][1],0);
+    var center = Rect.getCenter(rect,this._tempVec20);
+        center = Vec3.set3(this._tempVec30,center[0],center[1],0);
     var size   = Rect.getSize(rect,this._tempVec20);
 
     this._ctx.pushModelMatrix();
-        this._ctx.translate(origin);
+        this._ctx.translate(center);
+        this._ctx.scale(size);
         this.drawRectStroked(size[0],size[1]);
     this._ctx.popModelMatrix();
 
@@ -1879,8 +1881,6 @@ Draw.prototype.debugRect = function(rect,showMinMax,showCenter){
     }
 
     if(showCenter){
-        var center = Rect.getCenter(rect,this._tempVec20);
-            center = Vec3.set3(this._tempVec30,center[0],center[1],0);
         this.setColor4(1,0,1,1);
         this.drawPoint(center);
     }
@@ -1960,19 +1960,21 @@ Draw.prototype.debugPlane = function(plane,useNormalColor,planeScale,normalScale
     if(useNormalColor){
         this.setColor4(0.5 + normal[0] * 0.5,0.5 + normal[1] * 0.5,0.5 + normal[2] * 0.5,1.0);
     }
-    this._ctx.pushModelMatrix();
-        this._ctx.translate(point);
-        this._ctx.pushModelMatrix();
-            this._ctx.rotateQuat(Quat.fromDirection(this._tempQuat0,normal,AXIS_Y));
-            this._ctx.translate(Vec3.set3(this._tempVec31,-0.5,-0.5,0));
-            this._ctx.scale(Vec3.set3(this._tempVec31,planeScale,planeScale,planeScale));
+    var ctx = this._ctx;
+
+    ctx.pushModelMatrix();
+        ctx.translate(point);
+        ctx.pushModelMatrix();
+            ctx.rotateQuat(Quat.fromDirection(this._tempQuat0,normal,AXIS_Y));
+            ctx.scale(Vec3.set3(this._tempVec31,planeScale,planeScale,planeScale));
+            ctx.translate(Vec3.set3(this._tempVec31,-0.5,-0.5,0));
             this.drawRectStroked();
-        this._ctx.popModelMatrix();
+        ctx.popModelMatrix();
         if(normalScale !== 1.0){
             this._ctx.scale(Vec3.set3(this._tempVec31,normalScale,normalScale,normalScale));
         }
         this.drawVector(VEC3_ZERO,normal,NORMAL_HEAD_LENGTH,NORMAL_HEAD_RADIUS);
-    this._ctx.popModelMatrix();
+    ctx.popModelMatrix();
 
     this.setPointSize(4);
     this.setColor4(0,1,0,1);
