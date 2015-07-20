@@ -1280,6 +1280,10 @@ Draw.prototype.drawLine6 = function(x0,y0,z0,x1,y1,z1){
 };
 
 Draw.prototype.drawLineStripFlat = function(lines,loop){
+    if(lines.length == 0){
+        return;
+    }
+
     this._updateProgramProperties();
 
     if(!this._programHasAttribPosition){
@@ -1325,14 +1329,23 @@ Draw.prototype.drawLineStripFlat = function(lines,loop){
 };
 
 Draw.prototype.drawLineStrip = function(lines,loop){
+    if(lines.length == 0){
+        return;
+    }
     this.drawLineStripFlat(arrUnpack3(lines,this._tempArrLineStrip),loop);
 };
 
 Draw.prototype.drawLines = function(lines){
+    if(lines.length == 0){
+        return;
+    }
     this.drawLinesFlat(arrUnpack32(lines,this._tempArrLines));
 };
 
 Draw.prototype.drawLinesFlat = function(lines){
+    if(lines.length == 0){
+        return;
+    }
     this._updateProgramProperties();
 
     if(!this._programHasAttribPosition){
