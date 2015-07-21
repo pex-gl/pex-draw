@@ -246,6 +246,15 @@ function Draw(ctx){
         ]),ctx.STATIC_DRAW
     );
 
+    this._bufferRectTexcoord = ctx.createBuffer(ctx.ARRAY_BUFFER,
+        new Float32Array([
+            0,0,
+            1,0,
+            1,1,
+            0,1
+        ]),ctx.STATIC_DRAW
+    );
+
     this._bufferRectPointsColor = ctx.createBuffer(ctx.ARRAY_BUFFER,
         new Float32Array(createArrWithValuesArgs(4,1,1,1,1)),
         ctx.DYNAMIC_DRAW,true
@@ -284,7 +293,8 @@ function Draw(ctx){
 
     this._vaoRect = ctx.createVertexArray([
         { buffer : this._bufferRectPosition, location : ctx.ATTRIB_POSITION, size : 2},
-        { buffer : this._bufferRectColor,    location : ctx.ATTRIB_COLOR,    size : 4}
+        { buffer : this._bufferRectColor,    location : ctx.ATTRIB_COLOR,    size : 4},
+        { buffer : this._bufferRectTexcoord, location : ctx.ATTRIB_TEX_COORD_0, size : 2}
     ], this._bufferRectIndex);
 
     // CIRCLE
