@@ -1962,7 +1962,7 @@ Draw.prototype.debugPlane = function(plane,useNormalColor,planeScale,normalScale
     useNormalColor = useNormalColor === undefined ? true : useNormalColor;
 
     var pointSize = this._pointSize;
-    var color     = Vec4.set(this._tempVec30,this._color);
+    var color     = Vec4.set(this._tempVec40,this._color);
 
     var point  = plane[0];
     var normal = plane[1];
