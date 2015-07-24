@@ -11,7 +11,9 @@ var AABB = require('pex-geom/AABB');
 var MAT4_IDENTITY = Mat4.create();
 var VEC2_ONE      = [1,1];
 var VEC3_ZERO     = [0,0,0];
-var AXIS_Y        = [0,1,0];
+var AXIS_X = Vec3.xAxis();
+var AXIS_Y = Vec3.yAxis();
+var AXIS_Z = Vec3.zAxis();
 
 var DEFAULT_VECTOR_HEAD_LENGTH = 0.125 * 0.5;
 var DEFAULT_VECTOR_HEAD_RADIUS = 0.075 * 0.5;
@@ -1992,6 +1994,25 @@ Draw.prototype.debugPlane = function(plane,useNormalColor,planeScale,normalScale
 
     this.setColor(color);
     this.setPointSize(pointSize);
+};
+
+Draw.prototype.debugOnB = function(onb,scale){
+    scale = scale === undefined ? 1.0 : scale;
+
+    var color = Vec4.set(this._tempVec40,this._color);
+
+    this._ctx.pushModelMatrix();
+        this._ctx.scale(Vec3.set3(this._tempVec30,scale,scale,scale));
+        this._ctx.multMatrix(Mat4.setRotationFromOnB(Mat4.identity(this._tempMat40),onb[0],onb[1],onb[2]));
+        this.setColor4(1,0,0,1);
+        this.drawVector(VEC3_ZERO,AXIS_X);
+        this.setColor4(0,1,0,1);
+        this.drawVector(VEC3_ZERO,AXIS_Y);
+        this.setColor4(0,0,1,1);
+        this.drawVector(VEC3_ZERO,AXIS_Z);
+    this._ctx.popModelMatrix();
+
+    this.setColor(color);
 };
 
 module.exports = Draw;
