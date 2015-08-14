@@ -966,12 +966,12 @@ Draw.prototype.drawQuat = function(){
 
 };
 
-Draw.prototype.drawVector = function(from,to,headLength,headRadius){
+Draw.prototype.drawVector = function(fromOrDirection,to,headLength,headRadius){
     if(to === undefined){
-        this.drawVector6(0,0,0,from[0],from[1],from[2]);
+        this.drawVector6(0,0,0,fromOrDirection[0],fromOrDirection[1],fromOrDirection[2]);
         return;
     }
-    this.drawVector6(from[0],from[1],from[2],to[0],to[1],to[2],headLength,headRadius);
+    this.drawVector6(fromOrDirection[0],fromOrDirection[1],fromOrDirection[2],to[0],to[1],to[2],headLength,headRadius);
 };
 
 Draw.prototype.drawVector6 = function(x0,y0,z0,x1,y1,z1,headLength,headRadius){
