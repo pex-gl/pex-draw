@@ -1,6 +1,6 @@
 {
   "name": "pex-draw",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Immediate mode 2d & 3d drawing api for pex-context.",
   "main": "index.js",
   "scripts": {
