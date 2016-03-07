@@ -1856,8 +1856,64 @@ Draw.prototype.debugArcball = function(arcball,showAxesDragArea,showPanOrigin){
 
 Draw.prototype.drawArcball = Draw.prototype.debugArcball;
 
-Draw.prototype.debugCamera = function(){
+Draw.prototype.debugCamera = function(camera) {
+    var lines = [];
 
+    var position = camera.getPosition();
+    var target = camera.getTarget();
+
+    var frustumNear = camera.getNear();
+    var frustumFar = camera.getFar();
+    var frustumTop = Math.tan(camera.getFov() / 180 * Math.PI / 2) * frustumNear;
+    var frustumRight = frustumTop * camera.getAspectRatio();
+    var frustumLeft = -frustumTop;
+    var frustumBottom = -frustumLeft;
+
+    var front = Vec3.normalize(Vec3.sub(Vec3.copy(camera.getTarget()), camera.getPosition()));
+    var up = Vec3.copy(camera.getUp());
+    var right = Vec3.normalize(Vec3.cross(Vec3.copy(front), up));
+
+    var frontNear = Vec3.scale(Vec3.copy(front), frustumNear);
+    var upTop = Vec3.scale(Vec3.copy(up), frustumTop);
+    var rightRight = Vec3.scale(Vec3.copy(right), frustumRight);
+
+    var frustumNearTopLeft     = Vec3.add(Vec3.sub(Vec3.copy(frontNear), rightRight), upTop);
+    var frustumNearTopRight    = Vec3.add(Vec3.add(Vec3.copy(frontNear), rightRight), upTop);
+    var frustumNearBottomRight = Vec3.sub(Vec3.add(Vec3.copy(frontNear), rightRight), upTop);
+    var frustumNearBottomLeft  = Vec3.sub(Vec3.sub(Vec3.copy(frontNear), rightRight), upTop);
+
+    var farNearRatio = frustumFar / frustumNear;
+
+    var frustumFarTopLeft     = Vec3.scale(Vec3.copy(frustumNearTopLeft    ), farNearRatio);
+    var frustumFarTopRight    = Vec3.scale(Vec3.copy(frustumNearTopRight   ), farNearRatio);
+    var frustumFarBottomRight = Vec3.scale(Vec3.copy(frustumNearBottomRight), farNearRatio);
+    var frustumFarBottomLeft  = Vec3.scale(Vec3.copy(frustumNearBottomLeft ), farNearRatio);
+
+    var zero = [0, 0, 0];
+    lines.push([zero, right]);
+    lines.push([zero, up]);
+    lines.push([zero, front]);
+
+    lines.push([zero, frustumFarTopLeft]);
+    lines.push([zero, frustumFarTopRight]);
+    lines.push([zero, frustumFarBottomRight]);
+    lines.push([zero, frustumFarBottomLeft]);
+
+    lines.push([frustumNearTopLeft, frustumNearTopRight]);
+    lines.push([frustumNearTopRight, frustumNearBottomRight]);
+    lines.push([frustumNearBottomRight, frustumNearBottomLeft]);
+    lines.push([frustumNearBottomLeft, frustumNearTopLeft]);
+
+    lines.push([frustumFarTopLeft, frustumFarTopRight]);
+    lines.push([frustumFarTopRight, frustumFarBottomRight]);
+    lines.push([frustumFarBottomRight, frustumFarBottomLeft]);
+    lines.push([frustumFarBottomLeft, frustumFarTopLeft]);
+
+    this._ctx.pushModelMatrix();
+        this._ctx.translate(position);
+        this.setColor4(1,1,1,1);
+        this.drawLines(lines);
+    this._ctx.popModelMatrix();
 };
 
 Draw.prototype.drawFrustum = function(){
