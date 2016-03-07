@@ -1916,8 +1916,9 @@ Draw.prototype.debugCamera = function(camera) {
     this._ctx.popModelMatrix();
 };
 
+//TODO: implement drawFrustum
 Draw.prototype.drawFrustum = function(){
-
+    throw new Error('Draw.drawFrustum is not implemented');
 };
 
 Draw.prototype.debugRect = function(rect,showMinMax,showCenter){
