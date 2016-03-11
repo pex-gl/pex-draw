@@ -1757,7 +1757,7 @@ Draw.prototype.drawOnB = function(){
 };
 
 Draw.prototype.drawFullscreenWindowRect = function(windowWidth,windowHeight,topleft){
-    this.drawScreenAlignedRect(windowWidth,windowHeight,windowWidth,windowHeight,topleft);
+    this.drawScreenAlignedRect(0, 0, windowWidth,windowHeight,windowWidth,windowHeight,topleft);
 };
 
 Draw.prototype.drawScreenAlignedRect = function(x,y,width,height,windowWidth,windowHeight,topleft){
